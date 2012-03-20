@@ -1,0 +1,381 @@
+This file documents the significant design options I had and the decisions I
+made on the one hand, and additional information about the structure of the
+built application to make my statements comprehensible on the other hand.
+
+[ Table of contents ]
+
+1. Application architecture
+	1.1 General considerations
+	1.2 Generic vs. multi-tier architecture
+	1.3 Exception handling
+	1.4 The application’s startup
+
+2. The database layer
+
+3. The service layer
+	3.1 General considerations
+	3.2 The client-server system
+	3.3 RMI vs. Sockets
+	3.4 Concurrent access and locking
+
+4. The GUI layer
+	4.1 General considerations
+	4.2 The MVC design pattern and its implementation
+	4.3 Processing status change information
+
+
+1. Application architecture
+
+1.1 General considerations
+=====================================================
+First of all I would like to introduce some general guide lines I followed
+during the implementation of my application called ‘Booking agent’. I do not 
+list pros and cons for all points explicitly but I explain my decisions.
+- Wherever possible I programmed against interfaces to keep the declaration 
+independent from the implementation. But this does not mean that an interface is
+used in any case. If there is only one implementation class, it makes no sense
+to write an additional interface for it. Anyway, the interface can be added as
+ soon as future requirement changes make its creation reasonable.
+- I implemented only really needed functionality. This means, that a class may
+have an addFoo() method but no removeFoo() method if it is not used. There is
+only one exception: The class SubContractor is a real java bean (see chapter 
+3.1 for more detailed information).
+- The visibility of classes and methods is always as restricted as possible. I
+did this to reduce the public interface to the really public functionality. All
+classes and their methods are only available where really needed. This is common
+good practice.
+- Generally I prefer working with collections to working with arrays although
+their use is faster, because collections are more flexible and easier to handle.
+Using collections instead of arrays will not really slow down the performance of
+this application but will make some implementation work easier. Thus, I used
+collections rather than arrays whenever possible. If needed, a conversion to an
+array is done.
+- As soon as the same code is used twice and it is needed to do so a method is
+created to erase redundant code. Also variables shall serve to ease up the
+refactoring if something changes, thus some values are stored in (temporary)
+variables to ensure using the same value in different method calls. For me,
+there is no alternative to this approach.
+- Logging: For the log I saw two different options: UsingSystem.out.println/
+System.err.println: This approach would be easy to use. It can be used without
+creating an object and provides two levels: out = normal, err = error. But it is
+limited to console outputs and the output must be formatted every time manually
+or by using a helper method. Using java’s Logger class would need a Logger
+instance in every place logging is needed. But it supports different log levels
+and one can define a standard logger format even containing date and time.
+Furthermore the log can be written to different places like the console or a
+file. Because the application is always started from a console window, log to
+the console is suitable. So, System...println could be my choice. But I decided
+to use the Logger class as it is much more flexible than System...println: I
+can log date/time beneath my log message and even exception stack traces if
+needed by just doing a little configuration.
+
+
+1.2 Generic vs. multi-tier architecture
+=======================================
+One of the first questions during the planning of the application was: should I
+design a generic system which can deal with different numbers of database
+columns and transform these columns automatically to the result JTable, or
+should I use a type secure system which is adapted to a certain data model.
+The generic system has the advantage, that a data model change does not require
+code adaptions. The JTable is constructed using the database file’s header
+information containing the column names. The JTable’s data section is filled by
+reading the database file and sending the record arrays to it. The
+DefaultTableModel would support this approach nicely. On the other hand there
+would be no clear separation of concerns and the exception handling is
+difficult.
+I decided to use a multi-tier architecture. Although it requires more
+implementation work and is less flexible, it is easier to plan, construct,
+understand and maintain. These reasons count most for me. In my application
+there a 3 layers.
+1. The database layer provides the access to the database file.
+2. The service layer transforms the records from the database (String arrays)
+into domain objects (SubContractor) and passes it to the GUI layer.
+3. The GUI layer presents the domain objects to the user.
+Each layer is a module and can be replaced by another implementation without
+changing the other layers. Exceptions can be encapsulated and/or re-thrown if
+needed on each layer. It is furthermore more comfortable to work with real
+objects than with arrays, also for debugging reasons. Another disadvantage of
+the generic solution is that I need to map the record data to the record number.
+Otherwise it is hard to check a record for adaptions made by other users in
+network mode. So I introduced the class SubContractorHandler to map a database
+record and its number into the SubContractor class.
+
+
+1.3 Exception handling
+======================
+The given DBMain interface defines two exceptions to be handled in the database
+layer: RecordNotFoundException and DuplicateKeyException. Regarding the
+DuplicateKeyException I had to consider when it should be thrown. I considered
+using the record number as key but then a DuplicateKeyException would never be
+thrown because the record number for a new record is either marked as deleted or
+not yet present. So I decided to use the record data (all except the customer
+ID) as key. The subcontractor’s name would not be enough because there are
+equally named companies in different cities.
+As far as I know, it is good practice to encapsulate low level exceptions like
+data storage layer exceptions in higher layers. So I created
+SubContractorNotFoundException and SubContractorAlreadyBookedException. The
+service layer catches the low level exceptions from the database or the RMI
+connection and transforms them into the high level exceptions which can be
+displayed to the user. If needed, the detail message of the caught exception is
+re-used for the user’s notification message and/or the log. Exceptions are
+written to the log in a short way to trace what’s going on. If an exception is
+unexpected and cannot be handled easily by the application, the log is more
+detailed by containing the whole stack trace.
+
+ 
+1.4 The application’s startup
+=============================
+- One question that came up was, how and when the configuration (server name,
+port, database file) can/must be done by the user. One approach could be to
+start the application in some kind of non-operative mode when no configuration
+is available. After the user has specified all needed parameters (for example
+via a menu), the application enters the operative mode. If a parameter needs to
+be changed, the user can do this via the same way without exiting the
+application. The advantage is, that no configuration is needed when using the
+application with the same parameters as before. If not, the user must enter the
+configuration menu to specify the desired parameters.
+I decided to use another mechanism: each time the application is started, the
+user is asked for the program mode dependent parameters like database file in
+standalone mode or server connection in client mode. If a configuration is
+available, the dialogs are preset with the configuration values so that the user
+just needs to go on by pushing one button per parameter. If different parameter
+values are needed, they can be entered directly without going through menus. A
+disadvantage is, that the user gets the parameter input dialogs at every program
+start – even if the user wants to use the stored configuration. But an advantage
+is that the parameters can be checked before they are used, because an
+automatically loaded invalid configuration can lead to problems. The main reason
+for my decision was that I want to avoid a non-operative mode of my application.
+Thus, when the user is trying to change the data connection, the old connection
+stays active until the new one could be established. I thing this is more user
+friendly.
+- Following the requirement I decided to exit the application when invalid or
+too many starting parameters are given. This means there are only three
+parameter options to start the application: ‘server’, ’alone’, ‘<empty>’. I
+decided to not ignore additional parameters to ‘server’ or ’alone’ because
+ignoring something is never good practice.
+
+
+2. The database layer
+=====================
+The assignment provides the DBMain interface which must be implemented by a
+class named ‘Data.java’ to provide the actual database access. The questions
+here were:
+- How should the database file itself be accessed? I decided to create a helper
+class for Data.java called DBFileAccess which encapsulates the actual read/write
+operations. This separates the concerns properly and is easier to understand and
+maintain. I decided to use a RandomAccessFile object. A FileChannel (which is
+based on RandomAccessFile) and its additional features like file locking is not
+needed because the assignment states: “You may assume that at any moment, at
+most one program is accessing the database file”. So the additional features are
+no real plus.
+- How should the record locking be implemented? The interface defines the
+methods for the record locking. While the read/write operations are passed to
+DBFileAccess, Data.java realizes the locking by accessing its DBFileAccess
+object only synchronized. All active locks are saved in a map. The locking
+mechanism is explained in more detail later. For me this decision was
+alternative-less because passing the lock mechanism to another class would need
+additional code without an actual advantage.
+
+
+3. The service layer
+
+3.1 General considerations
+========================== 
+- The service layer connects the GUI to the database. To make the GUI code clean
+and reusable I introduced two nearly identical interfaces SubContractorService
+and SubContractorServer. SubContractorService is addressed by the GUI. There are
+two implementation classes: one for the standalone mode and one for the client
+mode. The GUI retrieves the implementation to use from the ServiceFactory class.
+The SubContractorServer interface is needed to match the server side of a
+SubContractorService network client. It features all needed functionality for
+the client server communication. Both interfaces are needed, as the server’s
+interface methods throw a RemoteException and the client’s don’t. All
+implementation classes of these interfaces do not implement the defined
+functionality directly. This is done by the class Worker. The network client
+implementation passes all requests to the server implementation which invokes
+the requested action on its worker instance. The standalone implementation
+extends the Worker class to provide its functionality. I cannot think of a real
+alternative to this framework because it is easy to use and to understand, easy
+extendible and very flexible.
+- The service layer is the point where database records (String arrays) are
+transformed into objects (SubContractor). Because as far as I know for such
+purposes java beans are industry standard, I designed SubContractor as a java
+bean. Even if some methods may not actually be needed in other parts of the
+application.
+- During programming the service layer I faced the question, how to realize the
+search mechanism. I saw two possibilities: Using DBMain’s find method or
+retrieve all elements from the database and filter the created objects on the
+service layer. After some research I realized facts like: filtering on database
+level using file access is slower than filtering on List using memory access,
+or: using DBMain’s find method would prevent duplicate code. The assignment
+forced me to decide to filter the data in the service layer. It states:
+“...records where the name and/or location fields exactly match values specified
+by the user.” This does not match DBMain’s find method description where the
+fields’ beginnings must match the specified values. So, my program gets all
+subcontractors from the database (re-using find with a ‘find all’ argument in
+fact) and filters them like indicated in the assignment.
+- Another question that came up was: When should the customer ID inputted by the
+user been checked? I decided to do this in the service layer because the
+database schema has no character limitations and this should not be restricted
+for any reason. The customer ID must be of exactly 8 digits. This is a business
+restriction and no technical restriction. So I think it is best checked in the
+service layer. Otherwise the database layer could not be reused for other
+systems having different requests for the customer ID.
+
+
+3.2 The client-server system
+============================
+- In a client server-system many users make changes. So I had to decide how to
+refresh the result table. I saw two possibilities: Refreshing the table
+periodically by the program itself or provide a refresh button for the users.
+The periodical refresh would cause additional implementation work and more
+network traffic. Network traffic should generally as low as possible. For the
+implementation, some additional questions come up: what is a good time period
+for the refresh? Should a higher multi-user activity cause a shorter refresh
+period? What is to do when the table should be refreshed during a data update
+made by the user? The approach using a refresh button causes network traffic
+only when really needed and the user is not disturbed or confused by
+automatically changing table contents. I decided to provide a refresh button in
+the network client’s GUI because the other approach raises too many questions
+which are difficult to answer properly.
+ 
+
+3.3 RMI vs. Sockets
+===================
+This question is introduced by the assignment. The main (dis-)advantages are:
+- Sockets have a better performance than RMI, but in the ‘real world’ this is
+usually not counting much
+- RMI is java dependent (transfers java objects), Sockets are platform
+independent (transfer raw data) and thus better reusable in another applications
+- Sockets are the technique to use when transferring large data
+- The RMI protocol already exists, the Socket protocol is to implement
+(can be error-prone)
+- Both: no thread-safety
+I decided to use RMI for the following reasons: It is well tested and thus I
+preferred it to implementing my own (maybe error-prone) Socket communication
+protocol. I saw no reason to abandon the easy use of RMI for a performance
+increase which is rather theoretical because my application does not transfer
+large data. By implementing the Serializable interface with the class
+SubContractor, the objects generated from the database records can be
+transferred properly and I don’t have to care about the packing and unpacking of
+the objects, but can rely on a well-tested system. Both solutions are not
+thread-safe, so this point doesn't count. A socket connection may be used with
+other (non-java) applications so that the database file can be accessed by a
+non-java application. But this is here no advantage because the IT manager of
+Bodgitt and Scarper, LLC decided to use Java for the project and does not
+anticipate much reuse of the system. In fact, for me there is no pro at all for
+using sockets.
+
+
+3.4 Concurrent access and locking
+=================================
+For the locking, I thought of again two different approaches:
+- Implementing an exclusive locking system: As soon as user A selects a
+subcontractor from the list, the chosen subcontractor is locked and cannot be
+accessed by other users. After user A has finished or cancelled the manipulation
+(booking) on the subcontractor the lock is released. The advantage of this
+system is that other users can be notified directly if the subcontractor they
+chose is already locked; perhaps also indicating by whom. Problems may occur
+when reacting to unforeseen situations. The following questions have to be
+clarified: What happens if a client connection error occurs and the lock is
+hence never released? Is there an administrator who can release a lock? Or must
+the server be restarted (what would disturb all other users as well)? Can an
+automatic lock-timeout solve this problem? If yes, how big should this timeout
+be? And what happens if user A must pause the data manipulation for any reason
+and tries to go on with it after the timeout was reached? User A might be angry
+because after the timeout another user booked the subcontractor and it is no
+longer available for user A although he locked the record properly. Beside these
+logical problems, some technical issues come up: How can the locking mechanism
+identify if the RMI client which is accessing a locked record or releasing the
+lock is the client which actually locked the record? The thread ID cannot be the
+identifier because the RMI server may use more than only one thread for the
+different requests of a client. To sum it up: an exclusive locking system would
+need a big programming overhead dealing with all the mentioned issues.
+- Using the locking only when actually modifying data: This system combines the
+locking, the data manipulation and the unlocking in one method which is executed
+on the server. By doing this, the thread ID can be taken to identify the client
+which owns the lock because a method is always executed only by one thread. This
+is a big advantage and makes a client identification system obsolete.
+Furthermore, the users have no access to the locking mechanism; also not
+indirect (as in the other solution). This reduces the chance for errors. Further
+advantages are less network traffic and a very little chance to have an
+inconsistent lock state because the lock is freed even if a database write error
+occurs. A disadvantage is, that a user might try to book a subcontractor which
+was already booked by another user.
+I decided to use approach 2. In my application the RMI server uses a Worker
+class instance. It provides the methods ‘book’ and ‘clearBooking’ which lock a
+record, update its data and unlock it. The only disadvantage I see using this
+approach is the last mentioned one where booking conflicts may occur. I resolve
+this by informing the user when a booking is not possible and recommend to him
+that a refresh from time to time can help avoiding this situation. Approach one
+would cause too much extra work and has too many questions which are really hard
+to answer properly. So I decided to go the easy way which supports me by some
+charming solutions like the possibility to use the thread ID as client ID.
+
+
+4. The GUI layer
+
+4.1 General considerations
+==========================
+The GUI was designed to meet the requirements perfectly. But no additional
+functionality was implemented. I decided to keep the GUI simple and clean,
+but with all interaction elements easily accessible. I did not ‘hide’ the search
+functionality in the menu or on a dialog which must be opened. The user should
+feel comfortable when using the application. And because the functionality is
+currently not very large, all user interactions on the data can be done inside
+one screen. Anyway, if future requirement changes occur, the program can be
+adapted easily as it is designed in a modular way. For example: If the search
+options are extended, just the JPanel containing the search options must be
+extended. If needed, it can then simply be moved to another position in the GUI
+or into a new dialog.
+By using a MouseListener and KeyListeners I realized basic usability standards
+to make the user feel home in the application directly.
+GridBagLayout supports me best when combining many elements nicely together.
+
+
+4.2 The MVC design pattern and its implementation
+=================================================
+The assignment says that I should establish a framework that will support future
+functionality enhancements. So I built the GUI based on the MVC design pattern
+because it is state of the art and the swing components use this pattern, too.
+MVC can be realized in different ways: One approach is to use the Controller as
+the central controlling unit which deals with the user input, changes the model
+and notifies the view to get the new model data. I decided to implement the more
+classical approach where the controller deals with the user inputs, changes the
+model and fires a ‚modelChanged‘ event which causes the model to notify its
+views to refresh.
+- The view: In my application, the JTable is the only view to display the
+model’s data, so I can use the JTable which provides all needed view
+functionality (like repaint() for example) directly. With my decision to use the
+classical approach, no adaptions of the view are needed.
+- The model: This must be implemented by me – as usual. To do so I had the
+choice between different ways of creating the model class for the JTable. These
+are the three most common possibilities and the main (dis-)advantages of them:
+1. Implement the interface TableModel: very flexible but no functionality is
+inherited. 2. Extend DefaultTableModel: Many functions are inherited, nearly
+directly ‘ready-to-start’, but inflexible and based on a Vector of Vectors data
+structure. 3. Extend AbstractTableModel: Passes basic functionality to the
+subclass but can be adapted easily.
+My decision was to extend AbstractTableModel for my result JTable. It is the
+ideal compromise between the three choices: not too much implementation work and
+functionality inheritance without reducing flexibility.
+- The controller: Unlike other possible implementations, my controller does not
+implement a listener interface. Every time a listener is added to a component,
+an anonymous inner implementation class collects all needed data and passes it
+to the controller method to use. I made it this way because this makes the
+interaction between view and controller easy and as loose coupled as possible.
+
+
+4.3 Processing status change information
+========================================
+The main window containing the view and the interaction elements implements the
+interface StatusChangeListener. This was done to be able to react on different
+changes in the application. All workflow is done in the controller. It notifies
+all attached StatusChangeListeners for status changes and provides the current
+data like the established connection or the current or last executed application
+activity. I decided to create only one interface providing 4 methods instead of
+4 different interfaces (which would be the usual way) to avoid making it
+unnecessary complicated. It can be seen as another little MVC system: the main
+window is the view and the controller is both controller and model. I decided to
+do it this way because this is a smart little system without coupling the
+different involved classes and it is easy to extend.

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project default="package" name="Package the deliverables for project SunCertify">
+   
+	
+	<!-- set global properties for this build -->
+	
+	<property name="project.name" value="OCJD" />
+	
+	<property name="target" value="C:\temp\SunCertify"/>
+	<property name="deployment" value="${target}/deployment"/>
+	<property name="build" value="${target}/build"/>
+	<property name="release" value="${target}/release"/>
+
+	<property name="src" value="src"/>	
+	<property name="assignment" value="files/_ORIGINAL-Dateien"/>
+	<property name="doc" value="doc"/>
+
+
+	<!-- [clean] -->
+	<target name="clean" description="clean up" >
+		<delete dir="${deployment}" />
+		<delete dir="${build}" />
+	</target>
+
+
+	<!-- [createdirs] -->
+	<target name="createdirs" depends="clean">
+		<mkdir dir="${target}"/>
+		<mkdir dir="${deployment}"/>
+		<mkdir dir="${build}"/>
+		<mkdir dir="${build}/classes"/>
+		<mkdir dir="${build}/package"/>		
+	</target>
+
+
+	<!-- [compile] -->
+	<target name="compile" depends="createdirs">
+		<javac
+			sourcepath = ""
+			srcdir = "${src}"
+			destdir = "${build}/classes" >
+			<include name="**/*.java"/>
+		</javac>
+	</target>
+
+	<!-- [javadoc] -->
+	<target name="javadoc" depends="createdirs">
+    	<javadoc packagenames="suncertify.*"
+    		access="package"
+			sourcepath="${src}"
+			defaultexcludes="yes"
+			destdir="${build}/package/docs/javadoc"
+			author="true"
+			version="true"
+			use="true"
+			windowtitle="Java SE 6 Developer Certified Master - Submission, Jochen R. Meyer">
+		<doctitle><![CDATA[<h1>Java SE 6 Developer Certified Master - Submission, Jochen R. Meyer</h1>]]></doctitle>
+		</javadoc>
+	</target>
+
+
+	<!-- [build-jar] -->
+	<target name="build-jar" depends="compile, javadoc">
+		<jar destfile="${build}/runme.jar">
+			<fileset dir="${build}/classes" />
+			<manifest>
+			    <attribute name="Built-By" value="Jochen R. Meyer"/>
+	    		<attribute name="Main-Class" value="suncertify.Main"/>
+			</manifest>
+		</jar>
+	</target>
+
+
+	<!-- [package] -->
+	<target name="package" depends="build-jar">
+
+		<!-- root -->
+		<copy todir="${build}/package">
+			<fileset dir="${build}" includes="*.jar" />
+			<fileset dir="${assignment}" includes="*.db" />
+			<fileset dir="${doc}" includes="version.txt" />
+		</copy>
+		
+		<!-- /code -->
+		<mkdir dir="${build}/package/code"/>
+		<copy todir="${build}/package/code">
+			<fileset dir="${src}" />			
+		</copy>
+		
+		<!-- /docs -->
+		<mkdir dir="${build}/package/docs" />
+		<copy todir="${build}/package/docs">
+			<fileset dir="${doc}" includes="choices.txt" />
+			<fileset dir="${doc}" includes="userguide.txt" />
+			<fileset dir="${assignment}" includes="instructions.html" />
+		</copy>
+		
+		<!-- jar it up (without META-INF) -->
+		<zip destfile="${deployment}/project_jrm.jar">
+			<fileset dir="${build}/package" />
+		</zip>
+		
+	</target>
+
+</project>

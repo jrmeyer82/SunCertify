@@ -1,0 +1,206 @@
+This is the user guide for the "Booking agent" application. The application
+supports client service representatives to manage bookings for home improvement 
+contractors ("subcontractors") which offer home improvement services.
+
+[ Table of contents ]
+
+ 1. Application startup
+ 	1.1 Launch the application
+ 	1.2 Program parameter input
+ 	1.3 Program parameters
+ 	 
+ 2. Server mode
+        
+ 3. Using the GUI (client and standalone mode)
+ 	3.1 General
+ 	3.2 Searching for subcontractors
+	3.3 The booking of a subcontractor
+	3.4 Additional notes about the booking in the client mode
+	3.5 Changing the data source
+	3.6 Information text fields
+ 
+4. Troubleshooting
+	4.1 General
+	4.2 Networked client does not start
+
+
+
+1. Application startup
+
+1.1 Launch the application
+======================
+The application can be launched in three modes. The mode depends on the
+specified program argument. The command
+  java -jar runme.jar [mode]
+launches the application. The mode argument can be:
+alone:   application launched in standalone mode
+server:  application launched in server mode
+<empty>: application launched in network client mode
+Please note: No other arguments (more or different ones) are valid. The program
+is directly terminated when started with invalid arguments.
+
+
+1.2 Program parameter input
+===========================
+Each time the application is launched, you are asked to specify one or two mode
+dependent program arguments:
+ - the network port to be used for server/client communication (server, client)
+ - the database file to be used by the server (server, standalone)
+ - the server IP address or hostname (client)
+If the input is aborted, the application is directly terminated.
+You will get noticed if your input was invalid and you can enter another value
+or cancel the input (what causes the application's termination - as said).
+To ease up this process, the input is always initialized with the last used
+values so that just a few clicks are needed to go through this configuration
+part when using recent parameters.
+Please note: If the application is started the first time, the properties file
+is not available. Therefore it is created and initialized with standard values
+where reasonable. For example the standard RMI port 1099 will be predefined in
+the newly created properties file.
+
+
+1.3 Program parameters
+======================
+Depending on the the program mode you are asked to specify different parameters
+at the application's startup.
+Here is a short overview of the arguments the different modes require:
+ - standalone mode: database file
+ - server mode:     network port and database file
+ - client mode:     server address and network port
+The database file is choosen from a file chooser dialog which is automatically
+pre-filtered for *.db files. It shows the content of the directory containing
+the last choosen database file (if available). If no database file is available,
+the file chooser is initialized with an operating system dependent standard 
+directory. 
+The network port is specified via a simple input dialog. You can choose any 
+number between 1024 and 65535. The system ports (0 to 1023) are not foreseen for
+usage because there are not available on all operating systems for all users. It
+is recommended to use the standard port 1099 for convenience reasons.
+The server address can be the IP address or the hostname of the computer the
+server is supposed to run on.
+The server address and the server port can be obtained from the server's log and
+may be communicated to the users who need to connect to the server.
+If the program parameter input was successful the program is launched in the
+chosen mode and the properties file is updated with the specified parameters. 
+
+
+2. Server mode
+==============
+The server mode runs without a graphical interface. The only thing visible to 
+you is the console window containing the log. if you wish to stop the server,
+type CTRL+C on the console. 
+If you need to switch the port or database file, terminate and restart the 
+server with the desired configuration or start a second instance using a
+different port.
+
+
+3. Using the GUI (client and standalone mode)
+
+3.1 General
+===========
+The client and standalone mode use the same GUI (graphical user interface) to
+take and execute your commands. There is only one little difference existing
+in the file menu (see 3.4).
+Via this GUI you can search for subcontractors and book or unbook them and you
+can change the data source. To make the GUI intuitively usable, it supports
+common key shortcuts an behaviors (please see the following sections for more
+detail).
+Plase note: Buttons are only active (i.e.: available for pushing) if their use 
+makes sense. For example, the book button is disabled if the subcontractor is 
+already booked.
+The GUI can be exited via the standard cross button on the upper right of the
+window bar or via the menu: 'File' -> 'Exit'.
+
+
+3.2 Searching for subcontractors
+================================
+You can search for subcontractors using the search area on the upper left.
+With the available input options in this area you can search for
+ - just name
+ - just location
+ - name AND location
+ - name OR location
+of a subcontractor. The search is context sensitive and matches all
+subcontractors having exactly the values you specified in the text fields. If
+both fields are left blank, all subcontractors are retrieved from the database.
+Single blank fields are ignored, that means: AND or OR is only applicable if
+both fields are filled.
+Right after the program started all subcontractors from the database are
+displayed by default.
+The search result can be sorted by each column. Just click on the header of the
+column you want to sort. Clicking the header again, changes the sorting order
+(ascending, descending).
+Please note: The table's column sorting stays active until you choose a new
+datasource.
+
+
+3.3 The booking of a subcontractor
+==================================
+After the search has been executed, you can see the result in the table. Select
+a subcontractor via a single mouse click. If the subcontractor is free for
+booking, you can book it, otherwise you can only clear the booking. To execute
+the booking / clear booking push the appropriate button on the upper right.
+If needed, you can have a look at the subcontractors detail in a more
+comfortable way. Double-clicking a table entry, pressing return or pushing the 
+"Show detail" button opens the detail dialog for the selected subcontractor.
+From this dialog you can also book or unbook the subcontractor. After the 
+booking / unbooking the result table is updated.
+
+
+3.4 Additional notes about the booking in the client mode
+=========================================================
+Changes made by other CSRs working on the same server are not visible until you
+refresh the table or start a new search. It is recommended to refresh the table
+periodically when in client mode to be sure to work on up-to-date data. The more 
+users are connected to the server, the more often a refresh is useful. Only
+needed in client mode, the refresh button is not visible in standalone mode. 
+If you try to book a subcontractor which has already been booked by another CSR 
+(since the last update of your table), you will get an error message indicating 
+that this subcontractor is not bookable. In this case, please search for another
+subcontractor for your client.
+If you try to clear the booking of a subcontractor, it may be possible that
+another CSR already cleared the booking and booked it for another customer. In
+this case the system will show you a message indicating that the subcontractor's
+booking changed.  
+
+
+3.5 Changing the data source
+============================ 
+You can change the data source using the 'File' menu. Depending on the program 
+mode it has a particular entry:
+ - standalone mode: 'Choose database file' (datasoruce is a database file)
+ - clienbt mode:    'Input server and port' (datasource is a server connection)
+Click the menu entry and you will get the dialog known from the program start. 
+Select the new datasource. If your input is valid, the new datasource is used 
+from now on and the properties file is updated. If not, your are asked to input
+again. If you cancel the input the old datasource stays active.
+
+
+3.6 Information text fields
+===========================
+The GUI contains two information text fields: The connection info text field on
+the upper right and the status info text field at the bottom. Their names
+indicate their purpose: The connection info text field shows you the server name
+and port or the database file you are connected to. The status info text field
+is something like a rudimentary log and provides feedback about the just
+executed action. For example: how many subcontractors where found or if the
+data source change was successful.
+ 
+
+4. Troubleshooting
+
+4.1 General
+===========
+All errors are written to the application-log. Unexpected exceptions are logged 
+in full detail, others in a shortened way. Thus, it is always visible, what 
+happened during program use and the log of unexpected errors might help resolve 
+the problem.
+
+
+4.2 Networked client does not start
+===================================
+If you are unable to start the networked client, please check if:
+ - the specified host/port is correct
+ - a firewall on the server's host filters incoming connections
+ - a firewall on the client filters outgoing connections
+ - the server's hostname (if used) is resolved to the correct ip-address
